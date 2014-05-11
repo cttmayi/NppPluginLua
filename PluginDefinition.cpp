@@ -200,6 +200,8 @@ void doLuaScriptFlie(TCHAR* fileName)
 	wcscat(file, fileName);
 
 	doLuaFile(file);
+
+
 }
 
 void doLuaInit()
@@ -207,11 +209,6 @@ void doLuaInit()
 	doLuaScriptFlie(TEXT("init.lua"));
 }
 
-
-void doLuaCommand()
-{
-	doLuaScriptFlie(funcLuaName[0]);
-}
 
 
 #define DEF_DO_LUA_COMMAND(id) void doLuaCommand_##id() { doLuaScriptFlie(funcLuaName[id]);}
