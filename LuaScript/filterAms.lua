@@ -23,7 +23,7 @@ android.filter =  function (str, list)
 end
 
 
-str = string.gsub(notepad.getCurText(), "\r\n", "\n") 
+str = string.gsub(notepad.getCurText(), "\r", "") 
 
 local list = string.split(str, '\n')
 
@@ -31,7 +31,7 @@ out = ""
 
 for _, s in ipairs(list) do
 	if android.filter(s, {"ActivityManager:", "ActivityThread:"}) then
-		out = out .. s 
+		out = out .. s .. "\n"
 	end
 end
 

@@ -34,8 +34,9 @@ int nbFunc = 0;
 
 FuncItem funcItem[MaxFunc];
 
-TCHAR funcLuaName[MaxFunc][MAX_PATH];
+char funcLuaName[MaxFunc][MAX_PATH];
 
+ShortcutKey funcLuaSck[MaxFunc];
 
 //
 // The data of Notepad++ that you can use in your plugin commands
@@ -43,6 +44,7 @@ TCHAR funcLuaName[MaxFunc][MAX_PATH];
 NppData nppData;
 
 TCHAR luaScriptPath[MAX_PATH];
+char luaScriptPathChar[MAX_PATH];
 
 //
 // Initialize your plugin data here
@@ -70,6 +72,8 @@ void commandMenuInit()
 	::SendMessage( nppData._nppHandle, NPPM_GETNPPDIRECTORY, MAX_PATH, (LPARAM)luaScriptPath );
 	wcscat(luaScriptPath, TEXT("\\plugins\\LuaScript\\"));
 
+	TcharToChar(luaScriptPath, luaScriptPathChar);
+
 	doLuaInit();
 }
 
@@ -85,7 +89,7 @@ void commandMenuCleanUp()
 //
 // This function help you to initialize your plugin commands
 //
-bool setCommand(size_t index, TCHAR *cmdName, PFUNCPLUGINCMD pFunc, ShortcutKey *sk, bool check0nInit) 
+bool setCommand(size_t index, const TCHAR *cmdName, PFUNCPLUGINCMD pFunc, ShortcutKey *sk, bool check0nInit) 
 {
     if (!pFunc)
 	{
@@ -154,20 +158,20 @@ extern "C" int setLuaCommandEx(lua_State* L)
 	const char* op2 = luaL_checkstring(L,2);
 	const char* op3 = luaL_tolstring(L,3, &op3Len);
 
-	TCHAR opt1[MAX_PATH], opt2[MAX_PATH];
+	TCHAR opt1[MAX_PATH];
 
 	CharToTchar(op1, opt1);
-	CharToTchar(op2, opt2);
+	//CharToTchar(op2, opt2);
 
 	//LogcatLog(op3);
 	//logcatLog(op1);
 	if (op3 == NULL || op3Len == 0)
 	{ 
-		setLuaCommand(opt1, opt2, 0);
+		setLuaCommand(opt1, op2, 0);
 	}
 	else
 	{
-		setLuaCommand(opt1, opt2, op3[0]);
+		setLuaCommand(opt1, op2, op3[0]);
 	}
 	return 1;
 }
@@ -183,7 +187,7 @@ static luaL_Reg NotepadLibs[] = {
 /////////////////////////////////////////////////////////
 
 
-void doLuaFile(TCHAR* fileName)
+void doLuaFile(TCHAR* fileName, char* luaCommand)
 {
 	lua_State *L = luaL_newstate();  /* create state */
 	if (L == NULL) {
@@ -199,27 +203,41 @@ void doLuaFile(TCHAR* fileName)
 
 	TcharToChar(fileName, fileNameChar);
 
+	if (luaCommand != NULL)
+	{
+		luaL_dostring(L, luaCommand);
+	}
+
     luaL_dofile(L, fileNameChar);
+
     lua_close(L);
 }
 
-void doLuaScriptFlie(TCHAR* fileName)
+void doLuaScriptFlie(char* fileName)
 {
 	TCHAR file[MAX_PATH];
 	wcscpy (file, luaScriptPath);
-	wcscat(file, fileName);
+	wcscat(file, TEXT("lib//plugin.lua"));
 
-	doLuaFile(file);
+	char luaCommand[MAX_PATH + 20];
+	strcpy(luaCommand, "luaFile = [[");
+	strcat(luaCommand, luaScriptPathChar);
+	strcat(luaCommand, fileName);
+	strcat(luaCommand, "]]");
+	doLuaFile(file, luaCommand);
 
 
 }
 
 void doLuaInit()
 {
-	doLuaScriptFlie(TEXT("init.lua"));
+	TCHAR file[MAX_PATH];
+	wcscpy (file, luaScriptPath);
+	wcscat(file, TEXT("init.lua"));
+
+	doLuaFile(file, NULL);
 }
 
-void doLuaCommand() { doLuaScriptFlie(funcLuaName[0]);}
 
 #define DEF_DO_LUA_COMMAND(id) void doLuaCommand_##id() { doLuaScriptFlie(funcLuaName[id]);}
 #define DO_LUA_COMMAND(id) doLuaCommand_##id
@@ -234,6 +252,16 @@ DEF_DO_LUA_COMMAND(6)
 DEF_DO_LUA_COMMAND(7)
 DEF_DO_LUA_COMMAND(8)
 DEF_DO_LUA_COMMAND(9)
+DEF_DO_LUA_COMMAND(10)
+DEF_DO_LUA_COMMAND(11)
+DEF_DO_LUA_COMMAND(12)
+DEF_DO_LUA_COMMAND(13)
+DEF_DO_LUA_COMMAND(14)
+DEF_DO_LUA_COMMAND(15)
+DEF_DO_LUA_COMMAND(16)
+DEF_DO_LUA_COMMAND(17)
+DEF_DO_LUA_COMMAND(18)
+DEF_DO_LUA_COMMAND(19)
 
 PFUNCPLUGINCMD LuaCommands[MaxFunc] = {
 	DO_LUA_COMMAND(0),
@@ -246,10 +274,20 @@ PFUNCPLUGINCMD LuaCommands[MaxFunc] = {
 	DO_LUA_COMMAND(7),
 	DO_LUA_COMMAND(8),
 	DO_LUA_COMMAND(9),
+	DO_LUA_COMMAND(10),
+	DO_LUA_COMMAND(11),
+	DO_LUA_COMMAND(12),
+	DO_LUA_COMMAND(13),
+	DO_LUA_COMMAND(14),
+	DO_LUA_COMMAND(15),
+	DO_LUA_COMMAND(16),
+	DO_LUA_COMMAND(17),
+	DO_LUA_COMMAND(18),
+	DO_LUA_COMMAND(19),
 };
 
-ShortcutKey sk;
-bool setLuaCommand(TCHAR *cmdName, TCHAR* luaFileName, UCHAR shortcutKey)
+
+bool setLuaCommand(const TCHAR *cmdName, const char* luaFileName, UCHAR shortcutKey)
 {
 	//ShortcutKey sk;
 	ShortcutKey* psk = NULL;
@@ -259,14 +297,15 @@ bool setLuaCommand(TCHAR *cmdName, TCHAR* luaFileName, UCHAR shortcutKey)
 
 	if (shortcutKey != 0)
 	{
-		sk._isAlt = true;
-		sk._isCtrl = true;
-		sk._isShift = false;
-		sk._key = shortcutKey;
-		psk = &sk;
+		funcLuaSck[nbFunc]._isAlt = true;
+		funcLuaSck[nbFunc]._isCtrl = true;
+		funcLuaSck[nbFunc]._isShift = false;
+		funcLuaSck[nbFunc]._key = shortcutKey;
+		psk = funcLuaSck+nbFunc;
 	}
 
-	wcscpy(funcLuaName[nbFunc], luaFileName);
+	strcpy(funcLuaName[nbFunc], luaFileName);
+	//wcscpy(funcLuaName[nbFunc], luaFileName);
 
 	setCommand(nbFunc, cmdName, LuaCommands[nbFunc], psk, false);
 	nbFunc ++;

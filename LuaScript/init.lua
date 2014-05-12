@@ -1,5 +1,5 @@
 require "notepad"
 
 
-notepad.setLuaCommand("filterAms", "filterAms.lua")
-notepad.setLuaCommand("filterWms", "filterWms.lua")
+notepad.setLuaCommand("filterAms", "filterAms.lua", "X")
+notepad.setLuaCommand("filterWms", "filterWms.lua", "")

@@ -31,7 +31,7 @@ const TCHAR NPP_PLUGIN_NAME[] = TEXT("LuaScript");
 // Here define the number of your plugin commands
 //
 extern int nbFunc;
-const int MaxFunc = 10;
+const int MaxFunc = 20;
 
 //
 // Initialization of your plugin data
@@ -58,9 +58,9 @@ void commandMenuCleanUp();
 //
 // Function which sets your command 
 //
-bool setCommand(size_t index, TCHAR *cmdName, PFUNCPLUGINCMD pFunc, ShortcutKey *sk = NULL, bool check0nInit = false);
+bool setCommand(size_t index, const TCHAR *cmdName, PFUNCPLUGINCMD pFunc, ShortcutKey *sk = NULL, bool check0nInit = false);
 
-bool setLuaCommand(TCHAR *cmdName, TCHAR* luaFileName, UCHAR shortcutKey);
+bool setLuaCommand(const TCHAR *cmdName, const char* luaFileName, UCHAR shortcutKey);
 
 void doLuaInit();
 
