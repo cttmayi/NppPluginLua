@@ -51,7 +51,7 @@ void pluginInit(HANDLE hModule)
 {
 
 
-	//logcatInit();
+	
 }
 
 //
@@ -66,6 +66,7 @@ void pluginCleanUp()
 // You should fill your plugins commands here
 void commandMenuInit()
 {
+	LogcatInit();
 	::SendMessage( nppData._nppHandle, NPPM_GETNPPDIRECTORY, MAX_PATH, (LPARAM)luaScriptPath );
 	wcscat(luaScriptPath, TEXT("\\plugins\\LuaScript\\"));
 
@@ -148,17 +149,26 @@ extern "C" int openNewFile(lua_State* L)
 
 extern "C" int setLuaCommandEx(lua_State* L)
 {
+	size_t op3Len;
 	const char* op1 = luaL_checkstring(L,1);
 	const char* op2 = luaL_checkstring(L,2);
+	const char* op3 = luaL_tolstring(L,3, &op3Len);
 
 	TCHAR opt1[MAX_PATH], opt2[MAX_PATH];
 
 	CharToTchar(op1, opt1);
 	CharToTchar(op2, opt2);
 
+	//LogcatLog(op3);
 	//logcatLog(op1);
-
-	setLuaCommand(opt1, opt2, 0);
+	if (op3 == NULL || op3Len == 0)
+	{ 
+		setLuaCommand(opt1, opt2, 0);
+	}
+	else
+	{
+		setLuaCommand(opt1, opt2, op3[0]);
+	}
 	return 1;
 }
 
@@ -209,7 +219,7 @@ void doLuaInit()
 	doLuaScriptFlie(TEXT("init.lua"));
 }
 
-
+void doLuaCommand() { doLuaScriptFlie(funcLuaName[0]);}
 
 #define DEF_DO_LUA_COMMAND(id) void doLuaCommand_##id() { doLuaScriptFlie(funcLuaName[id]);}
 #define DO_LUA_COMMAND(id) doLuaCommand_##id
@@ -238,10 +248,10 @@ PFUNCPLUGINCMD LuaCommands[MaxFunc] = {
 	DO_LUA_COMMAND(9),
 };
 
-
+ShortcutKey sk;
 bool setLuaCommand(TCHAR *cmdName, TCHAR* luaFileName, UCHAR shortcutKey)
 {
-	ShortcutKey sk;
+	//ShortcutKey sk;
 	ShortcutKey* psk = NULL;
 	
     if (nbFunc >= MaxFunc)
@@ -250,7 +260,7 @@ bool setLuaCommand(TCHAR *cmdName, TCHAR* luaFileName, UCHAR shortcutKey)
 	if (shortcutKey != 0)
 	{
 		sk._isAlt = true;
-		sk._isCtrl = false;
+		sk._isCtrl = true;
 		sk._isShift = false;
 		sk._key = shortcutKey;
 		psk = &sk;
@@ -258,7 +268,7 @@ bool setLuaCommand(TCHAR *cmdName, TCHAR* luaFileName, UCHAR shortcutKey)
 
 	wcscpy(funcLuaName[nbFunc], luaFileName);
 
-	setCommand(nbFunc, cmdName, doLuaCommand, NULL, false);
+	setCommand(nbFunc, cmdName, LuaCommands[nbFunc], psk, false);
 	nbFunc ++;
 	return true;
 }

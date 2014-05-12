@@ -1,8 +1,8 @@
 
 
-extern "C" void logcatInit();
+extern "C" void LogcatInit();
 
-extern "C" void logcatLog(const char* log);
+extern "C" void LogcatLog(const char* log);
 
 extern "C" void TcharToChar (const TCHAR * tchar, char * _char);
 
