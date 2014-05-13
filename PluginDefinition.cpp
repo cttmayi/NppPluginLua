@@ -19,13 +19,7 @@
 #include "PluginUtil.h"
 #include "menuCmdID.h"
 
-#define lua_c
 
-extern "C" {
-#include "lua/lua.h"
-#include "lua/lualib.h"
-#include "lua/lauxlib.h"
-}
 
 //
 // The plugin data that Notepad++ needs
@@ -105,113 +99,7 @@ bool setCommand(size_t index, const TCHAR *cmdName, PFUNCPLUGINCMD pFunc, Shortc
 }
 
 
-////////////////////////////////
 
-extern "C" int getCurText(lua_State* L)
-{
-	HWND curScintilla = nppData._scintillaMainHandle;
-
-	unsigned int len = ::SendMessage(curScintilla, SCI_GETTEXTLENGTH, 0, 0) + 1;
-
-	char *chText = new char[len];
-	::SendMessage(curScintilla, SCI_GETTEXT, len, (LPARAM)chText);
-
-	lua_pushstring(L, chText);
-
-	return 1;
-}
-
-extern "C" int setCurText(lua_State* L)
-{
-	const char* op1 = luaL_checkstring(L,1);
-
-	HWND curScintilla = nppData._scintillaMainHandle;
-	::SendMessage(curScintilla, SCI_SETTEXT, 0, (LPARAM) op1);
-
-	return 1;
-}
-
-extern "C" int setNewText(lua_State* L)
-{
-	const char* op1 = luaL_checkstring(L,1);
-
-    ::SendMessage(nppData._nppHandle, NPPM_MENUCOMMAND, 0, IDM_FILE_NEW);
-	HWND newScintilla = nppData._scintillaMainHandle;
-	::SendMessage(newScintilla, SCI_SETTEXT, 0, (LPARAM) op1 );
-
-	return 1;
-}
-
-extern "C" int openNewFile(lua_State* L)
-{
-	const char* op1 = luaL_checkstring(L,1);
-
-	::SendMessage(NULL, NPPM_DOOPEN, 0, (LPARAM) op1 );
-
-	return 1;
-}
-
-extern "C" int setLuaCommandEx(lua_State* L)
-{
-	size_t op3Len;
-	const char* op1 = luaL_checkstring(L,1);
-	const char* op2 = luaL_checkstring(L,2);
-	const char* op3 = luaL_tolstring(L,3, &op3Len);
-
-	TCHAR opt1[MAX_PATH];
-
-	CharToTchar(op1, opt1);
-	//CharToTchar(op2, opt2);
-
-	//LogcatLog(op3);
-	//logcatLog(op1);
-	if (op3 == NULL || op3Len == 0)
-	{ 
-		setLuaCommand(opt1, op2, 0);
-	}
-	else
-	{
-		setLuaCommand(opt1, op2, op3[0]);
-	}
-	return 1;
-}
-
-static luaL_Reg NotepadLibs[] = {
-	{"getCurText", getCurText},
-	{"setCurText", setCurText},
-	{"setNewText", setNewText},
-	{"openNewFile", openNewFile},
-	{"setLuaCommand", setLuaCommandEx},
-	{NULL, NULL} 
-}; 
-/////////////////////////////////////////////////////////
-
-
-void doLuaFile(TCHAR* fileName, char* luaCommand)
-{
-	lua_State *L = luaL_newstate();  /* create state */
-	if (L == NULL) {
-		//l_message("lua", "cannot create state: not enough memory");
-		//return EXIT_FAILURE;
-		return;
-	}
-    luaL_openlibs(L);
-
-	luaL_register(L, "notepad", NotepadLibs);
-
-	char fileNameChar[MAX_PATH];
-
-	TcharToChar(fileName, fileNameChar);
-
-	if (luaCommand != NULL)
-	{
-		luaL_dostring(L, luaCommand);
-	}
-
-    luaL_dofile(L, fileNameChar);
-
-    lua_close(L);
-}
 
 void doLuaScriptFlie(char* fileName)
 {

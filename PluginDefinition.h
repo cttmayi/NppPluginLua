@@ -69,6 +69,6 @@ void doLuaInit();
 //
 void doLuaCommand();
 
-
+void doLuaFile(const TCHAR* fileName, const char* luaCommand);
 
 #endif //PLUGINDEFINITION_H
