@@ -119,11 +119,7 @@ void doLuaScriptFlie(char* fileName)
 
 void doLuaInit()
 {
-	TCHAR file[MAX_PATH];
-	wcscpy (file, luaScriptPath);
-	wcscat(file, TEXT("init.lua"));
-
-	doLuaFile(file, NULL);
+	doLuaScriptFlie("init.lua");
 }
 
 
@@ -193,7 +189,6 @@ bool setLuaCommand(const TCHAR *cmdName, const char* luaFileName, UCHAR shortcut
 	}
 
 	strcpy(funcLuaName[nbFunc], luaFileName);
-	//wcscpy(funcLuaName[nbFunc], luaFileName);
 
 	setCommand(nbFunc, cmdName, LuaCommands[nbFunc], psk, false);
 	nbFunc ++;

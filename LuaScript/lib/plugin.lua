@@ -1,5 +1,11 @@
 require "notepad"
 
+luaPath = string.match(luaFile, "(.+)\\[^\\]*%.%w+$") .. "\\"
+
+dofile(luaPath .. "lib\\util.lua")
+dofile(luaPath .. "lib\\notepad.lua")
+
+
 plugin = {}
 
 local func, err = loadfile(luaFile)
@@ -13,18 +19,4 @@ if func ~= nil then
 else
 	notepad.setNewText("Lua file build error: \n" .. err)
 end
-
---[[
-plugin.doLuaCommand = function()
-	notepad.setNewText(luaFile)
-	--dofile(luaFile)
-end
-
-plugin.main = function()
-	plugin.doLuaCommand()
-end
-
-plugin.main()
-
-]]--
 

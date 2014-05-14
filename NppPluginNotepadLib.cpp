@@ -1,7 +1,5 @@
 #define lua_c
 
-
-
 #include "PluginDefinition.h"
 #include "PluginUtil.h"
 #include "menuCmdID.h"
@@ -39,7 +37,7 @@ extern "C" int getCurText(lua_State* L)
 }
 
 
-// fix me !!!
+
 extern "C" int getSelText(lua_State* L)
 {
 	HWND curScintilla = nppData._scintillaMainHandle;
@@ -47,14 +45,31 @@ extern "C" int getSelText(lua_State* L)
 	unsigned int len = ::SendMessage(curScintilla, SCI_GETSELTEXT, 0, 0) + 1;
 
 	char *chText = new char[len];
-	::SendMessage(curScintilla, SCI_GETSELTEXT, len, (LPARAM)chText);
+	::SendMessage(curScintilla, SCI_GETSELTEXT, 0, (LPARAM)chText);
 
-	chText[len] = 0;
 
 	lua_pushstring(L, chText);
 
 	return 1;
 }
+
+
+extern "C" int getLineText(lua_State* L)
+{
+	int line = luaL_checkint(L,1) - 1;
+
+	HWND curScintilla = nppData._scintillaMainHandle;
+
+	unsigned int len = ::SendMessage(curScintilla, SCI_GETLINE, line, 0) + 1;
+
+	char *chText = new char[len];
+	::SendMessage(curScintilla, SCI_GETLINE, line, (LPARAM)chText);
+
+	lua_pushstring(L, chText);
+
+	return 1;
+}
+
 
 extern "C" int getCurLineText(lua_State* L)
 {
@@ -101,6 +116,19 @@ extern "C" int openNewFile(lua_State* L)
 	return 1;
 }
 
+extern "C" int getLine(lua_State* L)
+{
+
+	HWND curScintilla = nppData._scintillaMainHandle;
+
+	int iCaretPos = ::SendMessage( curScintilla, SCI_GETCURRENTPOS, 0, 0);
+    int iCurLine  = ::SendMessage( curScintilla, SCI_LINEFROMPOSITION, iCaretPos, 0) + 1;
+
+	lua_pushinteger(L, iCurLine);
+
+	return 1;
+}
+
 extern "C" int gotoLine(lua_State* L)
 {
 	int line = luaL_checkint(L,1) - 1;
@@ -109,6 +137,56 @@ extern "C" int gotoLine(lua_State* L)
 	::SendMessage(curScintilla, SCI_GOTOLINE, line, 0 );
 
 	return 1;
+}
+
+extern "C" int setSel(lua_State* L)
+{
+	int iAnchor = luaL_checkint(L,1);
+	int iCurPos = luaL_checkint(L,2);
+
+	HWND curScintilla = nppData._scintillaMainHandle;
+	SendMessage (curScintilla, SCI_SETSEL, iAnchor, iCurPos);
+
+	return 1;
+}
+
+extern "C" int setStyleColor(lua_State* L)
+{
+	int iIndex = luaL_checkint(L,1);
+	int iForeColor = luaL_checkint(L,2);
+	int iBackColor = luaL_checkint(L,3);
+
+	HWND curScintilla = nppData._scintillaMainHandle;
+	::SendMessage(curScintilla, SCI_STYLESETFORE, iIndex, iForeColor);
+	::SendMessage(curScintilla, SCI_STYLESETBACK, iIndex, iBackColor);
+
+	return 1;
+}
+
+extern "C" int setStyle(lua_State* L)
+{
+	int iStart = luaL_checkint(L,1);
+	int iEnd = luaL_checkint(L,2);
+	int iIndex = luaL_checkint(L,3);
+
+	HWND curScintilla = nppData._scintillaMainHandle;
+	::SendMessage(curScintilla, SCI_STARTSTYLING, iStart, 31);
+	::SendMessage(curScintilla, SCI_SETSTYLING, iEnd - iStart, iIndex);
+
+	return 1;
+}
+
+extern "C" int getFileName(lua_State* L)
+{
+	TCHAR chText[MAX_PATH];
+	char *chTextC = new char(MAX_PATH);
+	::SendMessage(nppData._nppHandle, NPPM_GETFULLCURRENTPATH, MAX_PATH, (LPARAM)chText);
+	TcharToChar(chText, chTextC);
+
+	lua_pushstring(L, chTextC);
+
+	return 1;
+
 }
 
 extern "C" int setLuaCommandEx(lua_State* L)
@@ -162,10 +240,16 @@ static luaL_Reg NotepadLibs[] = {
 	{"getCurText", getCurText},
 	{"getSelText", getSelText},
 	{"getCurLineText", getCurLineText},
+	{"getLineText", getLineText},
 	{"setCurText", setCurText},
 	{"appendCurText", appendCurText},
 	{"setNewText", setNewText},
 	{"gotoLine", gotoLine},
+	{"getLine", getLine},
+	{"setSel", setSel},
+	{"setStyleColor", setStyleColor},
+	{"setStyle", setStyle},
+	{"getFileName", getFileName},
 	{"openNewFile", openNewFile},
 	{NULL, NULL} 
 }; 
