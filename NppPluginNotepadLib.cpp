@@ -179,8 +179,10 @@ extern "C" int setStyle(lua_State* L)
 extern "C" int getFileName(lua_State* L)
 {
 	TCHAR chText[MAX_PATH];
-	char *chTextC = new char(MAX_PATH);
+	
 	::SendMessage(nppData._nppHandle, NPPM_GETFULLCURRENTPATH, MAX_PATH, (LPARAM)chText);
+
+	char *chTextC = new char(MAX_PATH);
 	TcharToChar(chText, chTextC);
 
 	lua_pushstring(L, chTextC);
