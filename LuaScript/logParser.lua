@@ -1,7 +1,18 @@
 
 
-
 log = {}
+
+-- tag, msg, condition, post
+log.reportInfos = {
+--	{"ActivityManager", "Broadcast sticky", [[ log.values["ordered"] == "false" ]], [[ log.add("Message Error:" .. log.pid) ]]},
+--	{"WifiController", "DeviceActiveState", [[ (tonumber(log.values["what"])) > 10 ]], [[ log.add("数据:" .. log.pid) ]]},
+--	{"ActivityManager", "SEND MESSAGE", nil, [[ log.add( "SEND:" .. log.pid, log.values["name"], 100) ]]},
+--	{"ActivityManager", "GET MESSAGE", nil, [[ log.remove(log.values["name"]) ]]},
+--	{"ContextImpl", "MTK", nil, [[ log.add("STACK ERROR", log.values["name"], 3, log.msg) ]]},
+	{nil, nil, [[ log.level == "E" ]], [[ log.add("Error" , "E" .. log.pid, 100, log.msg) ]]},
+	}
+
+
 
 log.split = function (log)
 	local date = string.sub(log, 1, 5)
@@ -29,17 +40,79 @@ log.getValue = function (str, pa)
 	return t
 end
 
---log.logCheck = function (tag, msg, )
+log.oldDate = nil
+log.getTime = function (date, time)
+	local ret = 0;
+	if log.oldDate == nil then
+		log.oldDate = date
+	end
 
--- tag, msg, condition, report
-log.reportInfos = {
-	{"ActivityManager", "Broadcast sticky", [[ return vlaues["ordered"] == "false" ]], [[ return "Message Error:" .. pid ]]},
-	{"WifiController", "DeviceActiveState", [[ return (tonumber(vlaues["what"])) > 10 ]], [[ return "数据:" .. pid ]]},
-					}
+	if log.oldDate ~= date then
+		ret = ret + 24 * 60 * 60 * 1000
+	end
+
+	local t = string.split(time, ':')
+	ret =  ret + tonumber(t[1]) * 60 * 60 * 1000 + tonumber(t[2]) * 60 * 1000 + tonumber(t[3]) * 1000
+
+	return ret
+end
+
+log.dataReps = {}
+log.keyReps = {}
+
+log.add = function (commit, key, time, rep)
+	if key == nil then 
+		key = "TEMP"
+	end
+	if time == nil then 
+		time = 0
+	end
+	if rep == nil then 
+		rep = ""
+	end
+
+	if log.keyReps[key] == nil or log.dataReps[log.keyReps[key]] == nil then
+		log.dataReps[#log.dataReps + 1] = {log.timeMs + time, log.logLine, rep .. "\n", commit}
+		log.keyReps[key] = #log.dataReps
+	else
+		local dataReps = log.dataReps[log.keyReps[key]]
+		local logLine = dataReps[DLOG]
+		local drep = dataReps[DREP]
+		if rep ~= "" then
+			drep = drep ..  rep .. "\n"
+		end
+		local commit = dataReps[DCOMMIT]
+		log.dataReps[log.keyReps[key]] = {log.timeMs + time, logLine, drep, commit}
+
+	end
+end
+
+log.remove = function (key)
+	if log.keyReps[key] ~= nil then
+		log.dataReps[log.keyReps[key]] = nil
+		log.keyReps[key] = nil
+	end
+end
+
+log.report = function(dataRep)
+	local r = ""
+	r = r .. "=========================================================================\n"
+	-- r = r .. dataRep[DLOG] .. "\n"
+	r = r .. dataRep[DCOMMIT] .. "\n"
+	r = r .. dataRep[DREP] .. "\n"
+	return r
+end
 
 
-local datas = {}
+DTIME = 1
+DLOG = 2
+DREP = 3
+DCOMMIT = 4
 
+TAG = 1
+MSG = 2
+COND = 3
+POST = 4
 
 local logs
 
@@ -50,24 +123,36 @@ local logLines = string.split(logs, "\n")
 
 local r = ""
 for k, logLine in pairs(logLines) do
-	date, time, pid, tid, level, tag, msg = log.split(logLine)
-	if time ~= nil then
-		vlaues = log.getValue(msg)
+	log.logLine = logLine
+	log.date, log.time, log.pid, log.tid, log.level, log.tag, log.msg = log.split(logLine)
+	if log.time ~= nil then
+		log.values = log.getValue(log.msg)
+		log.timeMs = log.getTime(log.date, log.time)
+
+		for dk, dataRep in pairs(log.dataReps) do
+			if dataRep[DTIME] <= log.timeMs then
+				r = r .. log.report(dataRep)
+				log.dataReps[dk] = nil
+			end
+		end
 
 		for tk, reportInfo in pairs(log.reportInfos) do
-			if tag == reportInfo[1] then
-				if reportInfo[2] ~= nil and string.find(msg, reportInfo[2]) ~= nil then
-					if reportInfo[3] ~= nil and loadstring(reportInfo[3])() == true then
-						local text = loadstring(reportInfo[4])()
-						if text ~= nil then
-							r = r .. logLine .. "\n"
-							r = r .. text .. "\n\n"
+			if reportInfo[TAG] == nil or log.tag == reportInfo[TAG] then
+				if reportInfo[MSG] == nil or string.find(log.msg, reportInfo[MSG]) ~= nil then
+					if reportInfo[COND] == nil or loadstring("return " .. reportInfo[COND])() == true then
+						if reportInfo[POST] ~= nil then
+								loadstring(reportInfo[POST])()
 						end
 					end
 				end
 			end
 		end
 	end
+end
+
+for dk, dataRep in pairs(log.dataReps) do
+	r = r .. log.report(dataRep)
+	log.dataReps[dk] = nil
 end
 
 notepad.setNewText(r)
