@@ -3,15 +3,21 @@
 log = {}
 
 -- tag, msg, condition, post
-log.reportInfos = {
+reportInfos = {
 --	{"ActivityManager", "Broadcast sticky", [[ log.values["ordered"] == "false" ]], [[ log.add("Message Error:" .. log.pid) ]]},
 --	{"WifiController", "DeviceActiveState", [[ (tonumber(log.values["what"])) > 10 ]], [[ log.add("数据:" .. log.pid) ]]},
 --	{"ActivityManager", "SEND MESSAGE", nil, [[ log.add( "SEND:" .. log.pid, log.values["name"], 100) ]]},
 --	{"ActivityManager", "GET MESSAGE", nil, [[ log.remove(log.values["name"]) ]]},
 --	{"ContextImpl", "MTK", nil, [[ log.add("STACK ERROR", log.values["name"], 3, log.msg) ]]},
 	{nil, nil, [[ log.level == "E" ]], [[ log.add("Error" , "E" .. log.pid, 100, log.msg) ]]},
-	}
+--	{nil, nil, [[ log.process[log.pid] == "system_process" ]], [[ log.add("system_process log:" , "E" .. log.pid, 1000, log.logLine) ]]},
+}
 
+processInfos = {
+	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_process")  ]]},
+}
+
+log.process = {}
 
 
 log.split = function (log)
@@ -94,6 +100,15 @@ log.remove = function (key)
 	end
 end
 
+log.setPid = function(pid, processName)
+	if log.process[pid] == nil then
+		log.process[pid] = processName
+		log.add( processName .. ": " .. pid, nil, 0)
+	end
+end 
+
+
+
 log.report = function(dataRep)
 	local r = ""
 	r = r .. "=========================================================================\n"
@@ -102,6 +117,45 @@ log.report = function(dataRep)
 	r = r .. dataRep[DREP] .. "\n"
 	return r
 end
+
+log.parser = function (logLines, infos) 
+	local r = ""
+	for k, logLine in pairs(logLines) do
+		log.logLine = logLine
+		log.date, log.time, log.pid, log.tid, log.level, log.tag, log.msg = log.split(logLine)
+		if log.time ~= nil then
+			log.values = log.getValue(log.msg)
+			log.timeMs = log.getTime(log.date, log.time)
+
+			for dk, dataRep in pairs(log.dataReps) do
+				if dataRep[DTIME] <= log.timeMs then
+					r = r .. log.report(dataRep)
+					log.dataReps[dk] = nil
+				end
+			end
+
+			for tk, info in pairs(infos) do
+				if info[TAG] == nil or log.tag == info[TAG] then
+					if info[MSG] == nil or string.find(log.msg, info[MSG]) ~= nil then
+						if info[COND] == nil or loadstring("return " .. info[COND])() == true then
+							if info[POST] ~= nil then
+									loadstring(info[POST])()
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	for dk, dataRep in pairs(log.dataReps) do
+		r = r .. log.report(dataRep)
+		log.dataReps[dk] = nil
+	end	
+
+	return r
+end
+
 
 
 DTIME = 1
@@ -114,46 +168,18 @@ MSG = 2
 COND = 3
 POST = 4
 
-local logs
 
-logs = string.gsub(notepad.getCurText(), "\r", "")
+
+local logs = string.gsub(notepad.getCurText(), "\r", "")
 
 local logLines = string.split(logs, "\n")
 
+local r
 
-local r = ""
-for k, logLine in pairs(logLines) do
-	log.logLine = logLine
-	log.date, log.time, log.pid, log.tid, log.level, log.tag, log.msg = log.split(logLine)
-	if log.time ~= nil then
-		log.values = log.getValue(log.msg)
-		log.timeMs = log.getTime(log.date, log.time)
+r = log.parser(logLines, processInfos)
 
-		for dk, dataRep in pairs(log.dataReps) do
-			if dataRep[DTIME] <= log.timeMs then
-				r = r .. log.report(dataRep)
-				log.dataReps[dk] = nil
-			end
-		end
+r = r .. log.parser(logLines, reportInfos)
 
-		for tk, reportInfo in pairs(log.reportInfos) do
-			if reportInfo[TAG] == nil or log.tag == reportInfo[TAG] then
-				if reportInfo[MSG] == nil or string.find(log.msg, reportInfo[MSG]) ~= nil then
-					if reportInfo[COND] == nil or loadstring("return " .. reportInfo[COND])() == true then
-						if reportInfo[POST] ~= nil then
-								loadstring(reportInfo[POST])()
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
-for dk, dataRep in pairs(log.dataReps) do
-	r = r .. log.report(dataRep)
-	log.dataReps[dk] = nil
-end
 
 notepad.setNewText(r)
 
