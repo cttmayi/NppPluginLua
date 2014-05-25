@@ -10,6 +10,7 @@ reportInfos = {
 --	{"ActivityManager", "GET MESSAGE", nil, [[ log.remove(log.values["name"]) ]]},
 --	{"ContextImpl", "MTK", nil, [[ log.add("STACK ERROR", log.values["name"], 3, log.msg) ]]},
 	{nil, nil, [[ log.level == "E" ]], [[ log.add("Error" , "E" .. log.pid, 100, log.msg) ]]},
+	{"ERR", nil, nil,[[ log.addTagPidInfo("ERR" , "ERR" .. log.pid, 100, log.msg) ]]},
 --	{nil, nil, [[ log.process[log.pid] == "system_process" ]], [[ log.add("system_process log:" , "E" .. log.pid, 1000, log.logLine) ]]},
 }
 
@@ -17,7 +18,12 @@ processInfos = {
 	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_process")  ]]},
 }
 
-log.process = {}
+
+
+
+
+
+
 
 
 log.split = function (log)
@@ -88,7 +94,13 @@ log.add = function (commit, key, time, rep)
 			drep = drep ..  rep .. "\n"
 		end
 		local commit = dataReps[DCOMMIT]
-		log.dataReps[log.keyReps[key]] = {log.timeMs + time, logLine, drep, commit}
+		local dtime = dataReps[DTIME]
+
+		if dtime < log.timeMs + time then
+			dtime = log.timeMs + time
+		end
+
+		log.dataReps[log.keyReps[key]] = {dtime, logLine, drep, commit}
 
 	end
 end
@@ -100,12 +112,27 @@ log.remove = function (key)
 	end
 end
 
+log.process = {}
+
 log.setPid = function(pid, processName)
 	if log.process[pid] == nil then
 		log.process[pid] = processName
 		log.add( processName .. ": " .. pid, nil, 0)
 	end
 end 
+
+
+log.infos = {}
+
+log.addTagPidInfo = function (commit, key, time, rep)
+	log.addInfo(log.tag, nil, "log.pid == " .. log.pid,  "log.add(" .. commit .. "," .. key .. "," .. "0" .. "," .. rep .. ")", time)
+	log.add(commit, key, time, rep)
+end
+
+log.addInfo = function (tag, msg, cond, post, time)
+	log.infos[#log.infos + 1] = {tag, msg, cond, post, log.timeMs + time}
+end
+
 
 
 
@@ -134,17 +161,35 @@ log.parser = function (logLines, infos)
 				end
 			end
 
+
+
 			for tk, info in pairs(infos) do
 				if info[TAG] == nil or log.tag == info[TAG] then
 					if info[MSG] == nil or string.find(log.msg, info[MSG]) ~= nil then
 						if info[COND] == nil or loadstring("return " .. info[COND])() == true then
 							if info[POST] ~= nil then
-									loadstring(info[POST])()
+								loadstring(info[POST])()
 							end
 						end
 					end
 				end
 			end
+
+			for tk, info in pairs(log.infos) do
+				if info[TAG] == nil or log.tag == info[TAG] then
+					if info[MSG] == nil or string.find(log.msg, info[MSG]) ~= nil then
+						if info[COND] == nil or loadstring("return " .. info[COND])() == true then
+							if info[POST] ~= nil then
+								loadstring(info[POST])()
+							end
+						end
+					end
+				end
+				if info[TIME] ~= nil and info[TIME] < log.timeMs then
+					infos[tk] = nil
+				end
+			end
+
 		end
 	end
 
@@ -167,7 +212,7 @@ TAG = 1
 MSG = 2
 COND = 3
 POST = 4
-
+TIME = 5
 
 
 local logs = string.gsub(notepad.getCurText(), "\r", "")
