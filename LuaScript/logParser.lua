@@ -3,20 +3,39 @@
 log = {}
 
 -- tag, msg, condition, post
-reportInfos = {
---	{"ActivityManager", "Broadcast sticky", [[ log.values["ordered"] == "false" ]], [[ log.add("Message Error:" .. log.pid) ]]},
+processInfos = {
+	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_process")  ]]},
+	{"SurfaceFlinger", nil, nil, [[ log.setPid(log.pid, "surfaceflinger")  ]]},
+	{"MediaPlayerService", nil, nil, [[ log.setPid(log.pid, "mediaserver")  ]]},
+	{"AudioFlinger", nil, nil, [[ log.setPid(log.pid, "mediaserver")  ]]},
+	{"ADB_SERVICES", nil, nil, [[ log.setPid(log.pid, "adbd")  ]]},
+	{"DrmMtkPlugIn", nil, nil, [[ log.setPid(log.pid, "drm")  ]]},
+	{"Launcher3", nil, nil, [[ log.setPid(log.pid, "com.android.launcher3")  ]]},
+	{"KeyguardHostView", nil, nil, [[ log.setPid(log.pid, "com.android.keyguard")  ]]},
+	{"WallpaperService", nil, nil, [[ log.setPid(log.pid, "com.android.systemui")  ]]},
+}
+
+
+flowInfos = {
+	{"ActivityManager", "wakingUp", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
+	{"ActivityManager", "goingToSleep", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
+	{"ActivityManager", "START u0 ", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
+	{"ActivityManager", nil, [[ string.find(log.msg, "ACT") == 1 ]] , [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
+--	{"ViewRootImpl", "App handle pointer event", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
 --	{"WifiController", "DeviceActiveState", [[ (tonumber(log.values["what"])) > 10 ]], [[ log.add("数据:" .. log.pid) ]]},
 --	{"ActivityManager", "SEND MESSAGE", nil, [[ log.add( "SEND:" .. log.pid, log.values["name"], 100) ]]},
 --	{"ActivityManager", "GET MESSAGE", nil, [[ log.remove(log.values["name"]) ]]},
 --	{"ContextImpl", "MTK", nil, [[ log.add("STACK ERROR", log.values["name"], 3, log.msg) ]]},
-	{nil, nil, [[ log.level == "E" ]], [[ log.add("Error" , "E" .. log.pid, 100, log.msg) ]]},
-	{"ERR", nil, nil,[[ log.addTagPidInfo("ERR" , "ERR" .. log.pid, 100, log.msg) ]]},
---	{nil, nil, [[ log.process[log.pid] == "system_process" ]], [[ log.add("system_process log:" , "E" .. log.pid, 1000, log.logLine) ]]},
+--	{"ERR", nil, nil,[[ log.addTagPidInfo("ERR" , "ERR" .. log.pid, 100, log.msg) ]]},
+--	{nil, nil, [[ log.process[log.pid] == "system_process" ]], [[ log.add("system_process log:" , "E" .. log.pid, 1000, log.log) ]]},
 }
 
-processInfos = {
-	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_process")  ]]},
+
+reportInfos = {
+	{nil, nil, [[ log.level == "E" ]], [[ log.add("Error" , "E" .. log.pid, 100, log.log) ]]},
 }
+
+
 
 
 
@@ -84,7 +103,7 @@ log.add = function (commit, key, time, rep)
 	end
 
 	if log.keyReps[key] == nil or log.dataReps[log.keyReps[key]] == nil then
-		log.dataReps[#log.dataReps + 1] = {log.timeMs + time, log.logLine, rep .. "\n", commit}
+		log.dataReps[#log.dataReps + 1] = {log.timeMs + time, log.log, rep .. "\n", commit}
 		log.keyReps[key] = #log.dataReps
 	else
 		local dataReps = log.dataReps[log.keyReps[key]]
@@ -117,7 +136,7 @@ log.process = {}
 log.setPid = function(pid, processName)
 	if log.process[pid] == nil then
 		log.process[pid] = processName
-		log.add( processName .. ": " .. pid, nil, 0)
+		log.add("processName", "processName", 1000000, pid  .. "\t: " .. processName)
 	end
 end 
 
@@ -148,7 +167,7 @@ end
 log.parser = function (logLines, infos) 
 	local r = ""
 	for k, logLine in pairs(logLines) do
-		log.logLine = logLine
+		log.log = logLine
 		log.date, log.time, log.pid, log.tid, log.level, log.tag, log.msg = log.split(logLine)
 		if log.time ~= nil then
 			log.values = log.getValue(log.msg)
@@ -222,6 +241,8 @@ local logLines = string.split(logs, "\n")
 local r
 
 r = log.parser(logLines, processInfos)
+
+r = r .. log.parser(logLines, flowInfos)
 
 r = r .. log.parser(logLines, reportInfos)
 
