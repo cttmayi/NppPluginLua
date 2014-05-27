@@ -1,7 +1,13 @@
 
 
-log = {}
 
+MAX = 1000000
+
+TAG = 1
+MSG = 2
+COND = 3
+POST = 4
+TIME = 5
 -- tag, msg, condition, post
 processInfos = {
 	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_process")  ]]},
@@ -17,22 +23,29 @@ processInfos = {
 
 
 flowInfos = {
-	{"ActivityManager", "wakingUp", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
-	{"ActivityManager", "goingToSleep", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
-	{"ActivityManager", "START u0 ", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
-	{"ActivityManager", nil, [[ string.find(log.msg, "ACT") == 1 ]] , [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
---	{"ViewRootImpl", "App handle pointer event", nil, [[ log.add("Operator:", "Operator", 200000, log.log) ]]},
---	{"WifiController", "DeviceActiveState", [[ (tonumber(log.values["what"])) > 10 ]], [[ log.add("数据:" .. log.pid) ]]},
---	{"ActivityManager", "SEND MESSAGE", nil, [[ log.add( "SEND:" .. log.pid, log.values["name"], 100) ]]},
---	{"ActivityManager", "GET MESSAGE", nil, [[ log.remove(log.values["name"]) ]]},
---	{"ContextImpl", "MTK", nil, [[ log.add("STACK ERROR", log.values["name"], 3, log.msg) ]]},
---	{"ERR", nil, nil,[[ log.addTagPidInfo("ERR" , "ERR" .. log.pid, 100, log.msg) ]]},
+	{"ActivityManager", "wakingUp", nil, [[ log.add("Operator:", "Operator", MAX, log.log) ]]},
+	{"ActivityManager", "goingToSleep", nil, [[ log.add("Operator:", "Operator", MAX, log.log) ]]},
+	{"ActivityManager", "START u0 ", nil, [[ log.add("Operator:", "Operator", MAX, log.log) ]]},
+	{"ActivityManager", nil, [[ string.find(log.msg, "ACT") == 1 ]] , [[ log.add("Operator:", "Operator", MAX, log.log) ]]},
+
 --	{nil, nil, [[ log.process[log.pid] == "system_process" ]], [[ log.add("system_process log:" , "E" .. log.pid, 1000, log.log) ]]},
 }
 
 
-reportInfos = {
+errorInfos = {
+	{"ActivityManager", "Broadcast", nil, [[ log.check("2 Broadcasts < 100ms", nil, -100, log.log) ]]},
+}
+
+otherInfos = {
 	{nil, nil, [[ log.level == "E" ]], [[ log.add("Error" , "E" .. log.pid, 100, log.log) ]]},
+}
+
+
+allInfos = {
+	{processInfos}, 
+	{flowInfos}, 
+	{errorInfos}, 
+	{otherInfos}
 }
 
 
@@ -40,10 +53,7 @@ reportInfos = {
 
 
 
-
-
-
-
+log = {}
 
 log.split = function (log)
 	local date = string.sub(log, 1, 5)
@@ -63,9 +73,9 @@ log.split = function (log)
 	return
 end
 
-log.getValue = function (str, pa)
+log.getValue = function (str, sp)
 	t = {}
-	for k, v in string.gmatch(str, "(%w+)=([%g]+)") do
+	for k, v in string.gmatch(str, "(%w+)" .. sp .. "([%g]+)") do
 		t[k] = v
 	end
 	return t
@@ -88,12 +98,15 @@ log.getTime = function (date, time)
 	return ret
 end
 
+
+DTIME = 1
+DREP = 2
+DCOMMIT = 3
 log.dataReps = {}
-log.keyReps = {}
 
 log.add = function (commit, key, time, rep)
 	if key == nil then 
-		key = "TEMP"
+		key = "ADD"
 	end
 	if time == nil then 
 		time = 0
@@ -102,12 +115,10 @@ log.add = function (commit, key, time, rep)
 		rep = ""
 	end
 
-	if log.keyReps[key] == nil or log.dataReps[log.keyReps[key]] == nil then
-		log.dataReps[#log.dataReps + 1] = {log.timeMs + time, log.log, rep .. "\n", commit}
-		log.keyReps[key] = #log.dataReps
+	if log.dataReps[key] == nil then
+		log.dataReps[key] = {log.timeMs + time, rep .. "\n", commit}
 	else
-		local dataReps = log.dataReps[log.keyReps[key]]
-		local logLine = dataReps[DLOG]
+		local dataReps = log.dataReps[key]
 		local drep = dataReps[DREP]
 		if rep ~= "" then
 			drep = drep ..  rep .. "\n"
@@ -119,15 +130,14 @@ log.add = function (commit, key, time, rep)
 			dtime = log.timeMs + time
 		end
 
-		log.dataReps[log.keyReps[key]] = {dtime, logLine, drep, commit}
+		log.dataReps[key] = {dtime, drep, commit}
 
 	end
 end
 
 log.remove = function (key)
-	if log.keyReps[key] ~= nil then
-		log.dataReps[log.keyReps[key]] = nil
-		log.keyReps[key] = nil
+	if log.dataReps[key] ~= nil then
+		log.dataReps[key] = nil
 	end
 end
 
@@ -136,7 +146,7 @@ log.process = {}
 log.setPid = function(pid, processName)
 	if log.process[pid] == nil then
 		log.process[pid] = processName
-		log.add("processName", "processName", 1000000, pid  .. "\t: " .. processName)
+		log.add("processName", "processName", MAX, pid  .. "\t: " .. processName)
 	end
 end 
 
@@ -153,24 +163,57 @@ log.addInfo = function (tag, msg, cond, post, time)
 end
 
 
+CTIME = 1
+CREP = 2
+
+log.checkData = {}
+
+log.check = function (commit, key, time, rep)
+	if key == nil then 
+		key = "CHECK"
+	end
+	if time == nil then 
+		time = 0
+	end
+	if rep == nil then 
+		rep = ""
+	end
+
+	if log.checkData[key] == nil then
+		log.checkData[key] = {log.timeMs, rep}
+	else
+		local ctime = log.checkData[key][CTIME]
+		if (time > 0 and ctime + time < log.timeMs) or (time < 0 and ctime - time > log.timeMs) then
+			log.add("[" .. (log.timeMs - ctime) .. "ms] " .. commit, key, 0, log.checkData[key][CREP] .. "\n" .. rep)
+		end
+		log.checkData[key] = {log.timeMs, rep, commit}
+	end 
+
+end
+
+
 
 
 log.report = function(dataRep)
 	local r = ""
 	r = r .. "=========================================================================\n"
-	-- r = r .. dataRep[DLOG] .. "\n"
 	r = r .. dataRep[DCOMMIT] .. "\n"
 	r = r .. dataRep[DREP] .. "\n"
 	return r
 end
 
-log.parser = function (logLines, infos) 
+log.parser = function (logLines, infos, sp) 
 	local r = ""
+	log.values = {}
 	for k, logLine in pairs(logLines) do
 		log.log = logLine
 		log.date, log.time, log.pid, log.tid, log.level, log.tag, log.msg = log.split(logLine)
 		if log.time ~= nil then
-			log.values = log.getValue(log.msg)
+			if sp ~= nil then
+
+				log.values = log.getValue(log.msg, sp)
+			end
+
 			log.timeMs = log.getTime(log.date, log.time)
 
 			for dk, dataRep in pairs(log.dataReps) do
@@ -213,8 +256,10 @@ log.parser = function (logLines, infos)
 	end
 
 	for dk, dataRep in pairs(log.dataReps) do
-		r = r .. log.report(dataRep)
-		log.dataReps[dk] = nil
+		if dataRep[DTIME] > MAX then
+			r = r .. log.report(dataRep)
+			log.dataReps[dk] = nil
+		end
 	end	
 
 	return r
@@ -222,31 +267,20 @@ end
 
 
 
-DTIME = 1
-DLOG = 2
-DREP = 3
-DCOMMIT = 4
 
-TAG = 1
-MSG = 2
-COND = 3
-POST = 4
-TIME = 5
+
+
 
 
 local logs = string.gsub(notepad.getCurText(), "\r", "")
 
 local logLines = string.split(logs, "\n")
 
-local r
+local r = ""
 
-r = log.parser(logLines, processInfos)
-
-r = r .. log.parser(logLines, flowInfos)
-
-r = r .. log.parser(logLines, reportInfos)
-
-
+for k, infos in pairs(allInfos) do
+	r = r .. log.parser(logLines, infos[1], infos[2])
+end
 notepad.setNewText(r)
 
 
