@@ -10,7 +10,7 @@ POST = 4
 TIME = 5
 -- tag, msg, condition, post
 processInfos = {
-	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_process")  ]]},
+	{"ActivityManager", nil, nil, [[ log.setPid(log.pid, "system_server")  ]]},
 	{"SurfaceFlinger", nil, nil, [[ log.setPid(log.pid, "surfaceflinger")  ]]},
 	{"MediaPlayerService", nil, nil, [[ log.setPid(log.pid, "mediaserver")  ]]},
 	{"AudioFlinger", nil, nil, [[ log.setPid(log.pid, "mediaserver")  ]]},
@@ -144,12 +144,15 @@ end
 log.process = {}
 
 log.setPid = function(pid, processName)
-	if log.process[pid] == nil then
-		log.process[pid] = processName
+	if log.process[processName] == nil then
+		log.process[processName] = pid
 		log.add("processName", "processName", MAX, pid  .. "\t: " .. processName)
 	end
 end 
 
+log.getPid = function (processName)
+	return log.process[processName]
+end
 
 log.infos = {}
 
@@ -222,8 +225,6 @@ log.parser = function (logLines, infos, sp)
 					log.dataReps[dk] = nil
 				end
 			end
-
-
 
 			for tk, info in pairs(infos) do
 				if info[TAG] == nil or log.tag == info[TAG] then
